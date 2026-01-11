@@ -306,7 +306,7 @@ export default function ResultsPage() {
                                         {/* Assuming max 10 years for visual ring, capped at 100% */}
                                         <circle cx="28" cy="28" r="22" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-emerald-500"
                                             strokeDasharray={2 * Math.PI * 22}
-                                            strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min((candidates[0]?.aiAnalysis?.experienceYears || 0) / 10, 1))}
+                                            strokeDashoffset={2 * Math.PI * 22 * (1 - Math.min((parseFloat(candidates[0]?.aiAnalysis?.experienceYears) || 0) / 10, 1))}
                                             strokeLinecap="round" />
                                     </svg>
                                     <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-800">
@@ -624,8 +624,8 @@ export default function ResultsPage() {
                         onClick={() => setShowCompareModal(true)}
                         disabled={selectedForCompare.length !== 2}
                         className={`flex items-center space-x-2 px-5 py-2 rounded-full font-bold text-sm transition-all shadow-lg ${selectedForCompare.length === 2
-                                ? "bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-105"
-                                : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                            ? "bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-105"
+                            : "bg-gray-800 text-gray-500 cursor-not-allowed"
                             }`}
                     >
                         <span>Compare Candidates</span>

@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
 
 export const POST = async (req) => {
     try {
@@ -14,7 +11,8 @@ export const POST = async (req) => {
             );
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const prompt = `
       You are an expert HR Specialist. 
@@ -30,11 +28,34 @@ export const POST = async (req) => {
       Original JD:
       "${jobDescription}"
       
-      Output ONLY the refined JD text.
+      Output ONLY the refined JD text. Do not include markdown code blocks like \`\`\` or \`\`\`json. Just the clean text.
     `;
 
-        const result = await model.generateContent(prompt);
-        const refinedText = result.response.text();
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [{ text: prompt }],
+                    },
+                ],
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error("Gemini API Error:", data);
+            throw new Error(data.error?.message || "Gemini API request failed");
+        }
+
+        let refinedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        // Cleanup any accidental markdown code blocks if the model ignores the instruction
+        refinedText = refinedText.replace(/^```(markdown)?/i, "").replace(/```$/i, "").trim();
 
         return NextResponse.json({ refinedText });
     } catch (error) {
