@@ -13,7 +13,9 @@ import {
   DocumentTextIcon,
   XMarkIcon,
   CheckCircleIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
 
 export default function Dashboard() {
@@ -21,12 +23,37 @@ export default function Dashboard() {
   const [uploadedResumes, setUploadedResumes] = useState([]); // {id, filename, status}
   const [ranking, setRanking] = useState(null);
   const [isRanking, setIsRanking] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const router = useRouter();
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
+  };
+
+  // Optimize JD with AI
+  const handleImproviseJD = async () => {
+    if (!jobDesc.trim()) return alert("Please enter some text to improvise.");
+    setIsOptimizing(true);
+    try {
+      const res = await fetch("/api/optimize-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription: jobDesc }),
+      });
+      const data = await res.json();
+      if (data.refinedText) {
+        setJobDesc(data.refinedText);
+      } else {
+        alert("Optimization failed or returned empty.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to connect to AI.");
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   const handleJDUpload = async (e) => {
@@ -199,30 +226,55 @@ export default function Dashboard() {
         {/* Left Column: Inputs */}
         <div className="space-y-8">
           {/* Job Description */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative group">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <ClipboardDocumentListIcon className="w-5 h-5 text-blue-500" />
                 Job Description
               </h2>
-              <label className="cursor-pointer text-sm text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-full transition-colors font-medium">
-                Upload PDF
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={handleJDUpload}
-                />
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleImproviseJD}
+                  disabled={isOptimizing || !jobDesc}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-bold shadow-sm hover:shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isOptimizing ? (
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : <SparklesIcon className="w-3 h-3" />}
+                  Improvise with AI
+                </button>
+                <label className="cursor-pointer text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-colors font-semibold flex items-center gap-1">
+                  <DocumentTextIcon className="w-3 h-3" />
+                  Upload PDF
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handleJDUpload}
+                  />
+                </label>
+              </div>
             </div>
-            <textarea
-              value={jobDesc}
-              onChange={(e) => setJobDesc(e.target.value)}
-              placeholder="Paste job description here or upload a PDF..."
-              className="w-full h-64 p-4 rounded-xl bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-gray-700 border focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all resize-none text-sm leading-relaxed text-gray-700 dark:text-gray-200"
-            />
+
+            <div className="relative">
+              <textarea
+                value={jobDesc}
+                onChange={(e) => setJobDesc(e.target.value)}
+                placeholder="Paste job description here or upload a PDF..."
+                className="w-full h-80 p-5 rounded-xl bg-gray-50/50 dark:bg-slate-800/50 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-transparent focus:outline-none transition-all resize-none text-sm leading-7 font-sans text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+
+              {/* Decorative Elements for "Visual Correctness" */}
+              {jobDesc.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                  <PencilSquareIcon className="w-12 h-12 text-gray-300 mb-2" />
+                  <span className="text-sm text-gray-400">Describe the role...</span>
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end mt-2">
-              <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
                 {jobDesc.length} characters
               </span>
             </div>

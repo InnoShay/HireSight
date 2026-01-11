@@ -11,7 +11,10 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
     ArrowLeftIcon,
-    ArrowDownTrayIcon
+    ArrowDownTrayIcon,
+    XMarkIcon,
+    CheckCircleIcon,
+    ArrowRightCircleIcon
 } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
 
@@ -20,6 +23,23 @@ export default function ResultsPage() {
     const [data, setData] = useState(null);
     const [viewMode, setViewMode] = useState("cards"); // 'cards' or 'leaderboard'
     const [expandedRow, setExpandedRow] = useState(null); // For accordion
+    const [selectedForCompare, setSelectedForCompare] = useState([]);
+    const [showCompareModal, setShowCompareModal] = useState(false);
+
+    const toggleCompare = (id) => {
+        if (selectedForCompare.includes(id)) {
+            setSelectedForCompare(prev => prev.filter(cId => cId !== id));
+        } else {
+            if (selectedForCompare.length >= 2) {
+                // If 2 already selected, replace the first one (FIFO) implies a smoother UX than alerting
+                // But user requested "Compare any two", so alert is safer or just blocking.
+                // Let's allow max 2.
+                alert("You can only compare 2 candidates at a time. Unselect one to add another.");
+                return;
+            }
+            setSelectedForCompare(prev => [...prev, id]);
+        }
+    };
 
     useEffect(() => {
         // Retrieve data from session storage
@@ -403,8 +423,17 @@ export default function ResultsPage() {
                             return (
                                 <div
                                     key={candidate.id}
-                                    className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+                                    className={`relative bg-white rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col ${selectedForCompare.includes(candidate.id) ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-gray-100 shadow-sm hover:shadow-lg'}`}
                                 >
+                                    {/* Selection Checkbox */}
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedForCompare.includes(candidate.id)}
+                                            onChange={() => toggleCompare(candidate.id)}
+                                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                    </div>
                                     <div className="p-6">
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center space-x-3">
@@ -523,6 +552,7 @@ export default function ResultsPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
+                                        <th className="p-4 w-10 text-center">Select</th>
                                         <th className="p-4 w-16 text-center">Rank</th>
                                         <th className="p-4">Candidate Name</th>
                                         <th className="p-4">Score</th>
@@ -540,7 +570,15 @@ export default function ResultsPage() {
                                         const skillMatchPct = detectedJDSkills > 0 ? Math.round((skillCount / detectedJDSkills) * 100) : 0;
 
                                         return (
-                                            <tr key={candidate.id} className="hover:bg-gray-50 transition-colors group">
+                                            <tr key={candidate.id} className={`hover:bg-gray-50 transition-colors group ${selectedForCompare.includes(candidate.id) ? 'bg-indigo-50/50' : ''}`}>
+                                                <td className="p-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedForCompare.includes(candidate.id)}
+                                                        onChange={() => toggleCompare(candidate.id)}
+                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className="p-4 text-center font-bold text-gray-700">
                                                     {idx + 1}
                                                 </td>
@@ -577,6 +615,144 @@ export default function ResultsPage() {
                     </div>
                 )}
             </main>
+
+            {/* Comparison Floating Bar */}
+            {selectedForCompare.length > 0 && (
+                <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-2 py-2 pl-6 rounded-full flex items-center shadow-2xl z-40 animate-slide-up border border-gray-700">
+                    <span className="text-sm font-medium mr-4">{selectedForCompare.length} selected</span>
+                    <button
+                        onClick={() => setShowCompareModal(true)}
+                        disabled={selectedForCompare.length !== 2}
+                        className={`flex items-center space-x-2 px-5 py-2 rounded-full font-bold text-sm transition-all shadow-lg ${selectedForCompare.length === 2
+                                ? "bg-indigo-600 hover:bg-indigo-500 text-white hover:scale-105"
+                                : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                            }`}
+                    >
+                        <span>Compare Candidates</span>
+                        <ArrowRightCircleIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setSelectedForCompare([])}
+                        className="ml-3 p-2 hover:bg-gray-800 rounded-full text-gray-400 transition-colors"
+                        title="Clear selection"
+                    >
+                        <XMarkIcon className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
+
+            {/* Comparison Modal */}
+            {showCompareModal && selectedForCompare.length === 2 && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative ring-1 ring-white/10">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-slate-800/50">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                                    <ChartBarIcon className="w-6 h-6 text-indigo-500" />
+                                    Head-to-Head Comparison
+                                </h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">Comparing top 2 selections</p>
+                            </div>
+                            <button onClick={() => setShowCompareModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-0 grid grid-cols-2 divide-x divide-gray-100 dark:divide-gray-800 relative bg-white dark:bg-slate-900">
+                            {/* Middle VS Badge */}
+                            <div className="absolute left-1/2 top-8 -translate-x-1/2 z-10">
+                                <div className="bg-white dark:bg-slate-800 border-4 border-slate-50 dark:border-slate-900 rounded-full w-12 h-12 flex items-center justify-center font-black text-gray-300 dark:text-gray-600 text-sm shadow-sm">
+                                    VS
+                                </div>
+                            </div>
+
+                            {selectedForCompare.map((id, index) => {
+                                const c = candidates.find(can => can.id === id);
+                                if (!c) return null;
+                                const ai = c.aiAnalysis || {};
+                                return (
+                                    <div key={id} className={`p-8 space-y-8 ${index === 0 ? 'bg-gradient-to-b from-indigo-50/30 to-transparent dark:from-indigo-900/10' : 'bg-gradient-to-b from-purple-50/30 to-transparent dark:from-purple-900/10'}`}>
+                                        <div className="text-center relative">
+                                            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center text-2xl font-bold mb-4 ${index === 0 ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300'}`}>
+                                                {c.filename.charAt(0).toUpperCase()}
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate px-4" title={c.filename}>{c.filename}</h3>
+                                            <div className="mt-4 inline-flex items-center px-6 py-2 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-gray-700">
+                                                <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+                                                    {Math.round(c.score * 100)}
+                                                </span>
+                                                <span className="text-sm font-bold text-gray-400 ml-1">% Fit</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-center">
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Experience</p>
+                                                <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{ai.experienceYears || 0} <span className="text-sm font-medium text-gray-400">Years</span></p>
+                                            </div>
+                                            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl text-center">
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Keywords</p>
+                                                <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{ai.matchedKeywords?.length || 0} <span className="text-sm font-medium text-gray-400">Found</span></p>
+                                            </div>
+                                        </div>
+
+                                        {/* Skills Breakdown */}
+                                        <div>
+                                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-4 text-center tracking-widest">Skill Analysis</h4>
+                                            <div className="space-y-4">
+                                                <div className="bg-green-50/50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30">
+                                                    <p className="text-xs font-bold text-green-700 dark:text-green-400 mb-2 flex items-center gap-2">
+                                                        <CheckCircleIcon className="w-4 h-4" /> Matched Skills
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {ai.matchedKeywords?.length > 0 ? (
+                                                            ai.matchedKeywords.map((k, i) => (
+                                                                <span key={i} className="text-[11px] px-2.5 py-1 bg-white dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-md font-semibold shadow-sm border border-green-100 dark:border-green-800">{k}</span>
+                                                            ))
+                                                        ) : <span className="text-xs text-gray-400 italic">None</span>}
+                                                    </div>
+                                                </div>
+
+                                                {ai.missingKeywords?.length > 0 && (
+                                                    <div className="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 opacity-80 hover:opacity-100 transition-opacity">
+                                                        <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-2 flex items-center gap-2">
+                                                            <XMarkIcon className="w-4 h-4" /> Missing Skills
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {ai.missingKeywords.map((k, i) => (
+                                                                <span key={i} className="text-[11px] px-2.5 py-1 bg-white dark:bg-red-900/20 text-red-500 dark:text-red-300 rounded-md decoration-red-300 line-through decoration-2 font-medium border border-red-100 dark:border-red-900/30">{k}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* AI Insights */}
+                                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Detailed Summary</h4>
+                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">{ai.summary || "No summary available."}</p>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-3">
+                                                <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg text-xs text-green-800 dark:text-green-300 border-l-4 border-green-500">
+                                                    <span className="font-bold block mb-1">Strongest Point</span>
+                                                    {ai.whyHigh || "N/A"}
+                                                </div>
+                                                <div className="p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg text-xs text-amber-800 dark:text-amber-300 border-l-4 border-amber-500">
+                                                    <span className="font-bold block mb-1">Area of Concern</span>
+                                                    {ai.improvement || "N/A"}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
