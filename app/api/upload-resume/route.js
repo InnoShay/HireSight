@@ -38,13 +38,13 @@ export const POST = async (req) => {
       pdfParser.parseBuffer(buffer);
     });
 
-    await addDoc(collection(db, "resumes"), {
+    const docRef = await addDoc(collection(db, "resumes"), {
       filename: file.name,
       rawText: extractedText,
       createdAt: new Date(),
     });
 
-    return NextResponse.json({ message: "Resume parsed & stored!" });
+    return NextResponse.json({ message: "Resume parsed & stored!", id: docRef.id, filename: file.name });
   } catch (error) {
     console.error("UPLOAD FAIL:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

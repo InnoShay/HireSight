@@ -1,20 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { auth } from "../../firebase/config";
+import { auth, db } from "../../firebase/config";
 import { signOut } from "firebase/auth";
+import { addDoc, collection } from "firebase/firestore";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CloudArrowUpIcon,
   ClipboardDocumentListIcon,
   ArrowRightCircleIcon,
+  DocumentTextIcon,
+  XMarkIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Dashboard() {
   const [jobDesc, setJobDesc] = useState("");
-  const [resumeFile, setResumeFile] = useState(null);
-  const [message, setMessage] = useState("");
-  const [ranking, setRanking] = useState([]);
+  const [uploadedResumes, setUploadedResumes] = useState([]); // {id, filename, status}
+  const [ranking, setRanking] = useState(null);
+  const [isRanking, setIsRanking] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -22,156 +29,319 @@ export default function Dashboard() {
     router.push("/login");
   };
 
-  const handleSubmitJobDesc = () => {
-    if (!jobDesc.trim()) return alert("Job description cannot be empty");
-    localStorage.setItem("jobDesc", jobDesc);
-    setMessage("Job description saved!");
-  };
-
-  const handleResumeUpload = async () => {
-    if (!resumeFile) return alert("Choose a PDF first");
+  const handleJDUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
     const formData = new FormData();
-    formData.append("file", resumeFile);
+    formData.append("file", file);
 
-    const res = await fetch("/api/upload-resume", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-    setMessage(data.message || "Resume uploaded!");
-  };
-
-  const computeRanking = async () => {
-    const savedJD = localStorage.getItem("jobDesc") || jobDesc;
-    if (!savedJD.trim()) return alert("Enter and save a job description first!");
-
-    const res = await fetch("/api/analyze-resumes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobDescription: savedJD }),
-    });
-
-    const data = await res.json();
-    if (data.ranked) {
-      setRanking(data.ranked);
-      setMessage("Ranking complete!");
-    } else {
-      setMessage("Error during ranking");
+    try {
+      const res = await fetch("/api/parse-pdf", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.text) setJobDesc(data.text);
+    } catch (err) {
+      alert("Failed to parse JD PDF");
     }
   };
 
+  const handleResumeUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Optimistically add to list
+    const newUploads = files.map((f) => ({
+      file: f,
+      filename: f.name,
+      status: "uploading",
+    }));
+
+    setUploadedResumes((prev) => [...prev, ...newUploads]);
+
+    // Upload each
+    for (let i = 0; i < newUploads.length; i++) {
+      const item = newUploads[i];
+      const formData = new FormData();
+      formData.append("file", item.file);
+
+      try {
+        const res = await fetch("/api/upload-resume", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        // Update status and ID
+        setUploadedResumes((prev) =>
+          prev.map((r) =>
+            r.filename === item.filename
+              ? { ...r, status: "done", id: data.id }
+              : r
+          )
+        );
+      } catch (err) {
+        setUploadedResumes((prev) =>
+          prev.map((r) =>
+            r.filename === item.filename ? { ...r, status: "error" } : r
+          )
+        );
+      }
+    }
+  };
+
+  // State for loading text
+  const [loadingText, setLoadingText] = useState("Processing...");
+
+  // ... (Upload handlers remain same)
+
+  const computeRanking = async () => {
+    if (!jobDesc.trim()) return alert("Please enter/upload a JD.");
+
+    // Validation: 3 resumes min (User requirement E)
+    const validResumes = uploadedResumes.filter((r) => r.id);
+    if (validResumes.length < 3) {
+      return alert("Upload at least 3 resumes to rank candidates!");
+    }
+
+    setIsRanking(true);
+    setLoadingText("Initializing...");
+
+    try {
+      // A. Simulate Loading States (User requirement D)
+      setLoadingText("Parsing Job Description...");
+      await new Promise(r => setTimeout(r, 600));
+
+      setLoadingText("Scanning Resumes...");
+      await new Promise(r => setTimeout(r, 800));
+
+      setLoadingText("Computing Semantic Embeddings...");
+      await new Promise(r => setTimeout(r, 1000));
+
+      setLoadingText("Ranking with HireSight...");
+
+      const res = await fetch("/api/analyze-resumes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobDescription: jobDesc,
+          resumeIds: validResumes.map((r) => r.id),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.ranked) {
+        setLoadingText("Finalizing Leaderboard...");
+        await new Promise(r => setTimeout(r, 500));
+
+        // Store results and redirect (User requirement A)
+        // Store results and redirect (User requirement A)
+        sessionStorage.setItem("rankingResults", JSON.stringify(data));
+
+        // Save to History (User requirement B)
+        try {
+          if (auth.currentUser) {
+            await addDoc(collection(db, "history"), {
+              userId: auth.currentUser.uid,
+              jobDescription: jobDesc,
+              jdAnalysis: data.jdAnalysis,
+              candidates: data.ranked, // Save full ranking details
+              createdAt: new Date().toISOString()
+            });
+          }
+        } catch (error) {
+          console.error("Failed to save history:", error);
+        }
+
+        router.push("/results");
+      } else {
+        alert("Ranking returned no results. Please check input.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Ranking failed");
+    } finally {
+      setIsRanking(false);
+      setLoadingText("Processing...");
+    }
+  };
+
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-blue-100 px-6 py-10">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-10">
-        <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">
-          AI Resume Screening
-        </h1>
-        <button
-          onClick={handleLogout}
-          className="text-sm bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md shadow"
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* Main Cards */}
-      <div className="max-w-3xl mx-auto grid gap-8">
-        {/* Job Description */}
-        <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
-          <div className="flex items-center mb-3">
-            <ClipboardDocumentListIcon className="h-6 w-6 text-blue-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-800">
-              1. Paste Job Description
-            </h2>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative transition-colors duration-200">
+      <nav className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-200">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+              HS
+            </div>
+            <span className="text-xl font-bold text-gray-800 dark:text-white">HireSight</span>
           </div>
-
-          <textarea
-            className="w-full h-32 border rounded-lg p-3 focus:ring-2 focus:ring-blue-400"
-            onChange={(e) => setJobDesc(e.target.value)}
-          />
-
+          <Link href="/history" className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            History
+          </Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
           <button
-            onClick={handleSubmitJobDesc}
-            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg shadow transition"
+            onClick={handleLogout}
+            className="text-sm text-gray-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 font-medium transition-colors"
           >
-            Save Description
+            Logout
           </button>
         </div>
+      </nav>
 
-        {/* Upload Resume */}
-        <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
-          <div className="flex items-center mb-3">
-            <CloudArrowUpIcon className="h-6 w-6 text-green-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-800">
-              2. Upload Resume PDF
-            </h2>
-          </div>
+      <div className="max-w-6xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column: Inputs */}
+        <div className="space-y-8">
+          {/* Job Description */}
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <ClipboardDocumentListIcon className="w-5 h-5 text-blue-500" />
+                Job Description
+              </h2>
+              <label className="cursor-pointer text-sm text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-full transition-colors font-medium">
+                Upload PDF
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handleJDUpload}
+                />
+              </label>
+            </div>
+            <textarea
+              value={jobDesc}
+              onChange={(e) => setJobDesc(e.target.value)}
+              placeholder="Paste job description here or upload a PDF..."
+              className="w-full h-64 p-4 rounded-xl bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-gray-700 border focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all resize-none text-sm leading-relaxed text-gray-700 dark:text-gray-200"
+            />
+            <div className="flex justify-end mt-2">
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                {jobDesc.length} characters
+              </span>
+            </div>
+          </section>
 
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setResumeFile(e.target.files[0])}
-            className="block w-full mb-3 text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 
-            file:rounded-md file:border-0 file:text-sm 
-            file:bg-gray-300 file:hover:bg-gray-400 cursor-pointer"
-          />
-
-          <button
-            onClick={handleResumeUpload}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg shadow"
-          >
-            Upload Resume
-          </button>
-        </div>
-
-        {/* Rank */}
-        <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
-          <div className="flex items-center mb-3">
-            <ArrowRightCircleIcon className="h-6 w-6 text-purple-600 mr-2" />
-            <h2 className="text-lg font-semibold text-gray-800">
-              3. Rank Candidates
-            </h2>
-          </div>
-
-          <button
-            onClick={computeRanking}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg shadow transition"
-          >
-            Compute Rankings
-          </button>
-        </div>
-
-        {/* RESULTS */}
-        {ranking.length > 0 && (
-          <div className="p-6 bg-white rounded-2xl shadow-lg border border-gray-200">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Ranking Results
+          {/* Resume Upload */}
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <CloudArrowUpIcon className="w-5 h-5 text-green-500" />
+              Upload Resumes
             </h2>
 
-            {ranking.map((r, i) => (
-              <div key={i} className="p-4 border-b">
-                <p className="font-bold text-gray-900">
-                  {i + 1}. {r.filename}
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+              <input
+                type="file"
+                multiple
+                accept="application/pdf"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleResumeUpload}
+              />
+              <div className="space-y-2 pointer-events-none">
+                <CloudArrowUpIcon className="w-10 h-10 text-gray-400 mx-auto" />
+                <p className="text-gray-600 font-medium">
+                  Click or drag PDFs here
                 </p>
-                <p className="text-sm text-gray-600">Score: {r.score}</p>
-                <p className="text-xs text-gray-500 mt-1 italic">
-                  {r.rawText}
+                <p className="text-xs text-gray-400">
+                  Upload multiple files to rank them
                 </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
 
-      {/* Status message */}
-      {message && (
-        <p className="text-center mt-6 text-green-700 font-medium animate-fade">
-          {message}
-        </p>
-      )}
+            {uploadedResumes.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {uploadedResumes.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100"
+                  >
+                    <span className="text-sm truncate max-w-[200px] text-gray-700">
+                      {file.filename}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded-full ${file.status === "done"
+                        ? "bg-green-100 text-green-700"
+                        : file.status === "error"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-blue-100 text-blue-700"
+                        }`}
+                    >
+                      {file.status === "done" ? "Ready" : file.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right Column: Action & Hints */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-8 text-white shadow-lg">
+            <h3 className="text-2xl font-bold mb-2">Ready to Rank?</h3>
+            <p className="text-indigo-100 mb-6">
+              Our AI will analyze the uploaded resumes against your job
+              description to find the best match.
+            </p>
+            <button
+              onClick={computeRanking}
+              disabled={isRanking || !jobDesc || uploadedResumes.length === 0}
+              className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2"
+            >
+              {isRanking ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  {loadingText}
+                </>
+              ) : (
+                <>
+                  <ArrowRightCircleIcon className="w-6 h-6" />
+                  Rank Candidates
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex-1">
+            <h3 className="font-semibold text-gray-800 mb-4">How it works</h3>
+            <ul className="space-y-4">
+              <li className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                  1
+                </div>
+                <p className="text-sm text-gray-600 pt-1">
+                  Upload the Job Description (PDF or Text). We extract keywords
+                  automatically.
+                </p>
+              </li>
+              <li className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-sm">
+                  2
+                </div>
+                <p className="text-sm text-gray-600 pt-1">
+                  Upload multiple candidate resumes. We support batch processing.
+                </p>
+              </li>
+              <li className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm">
+                  3
+                </div>
+                <p className="text-sm text-gray-600 pt-1">
+                  Get instant rankings based on semantic similarity and keyword
+                  matching.
+                </p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
