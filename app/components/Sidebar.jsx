@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { auth } from "../../firebase/config";
+import { auth, db } from "../../firebase/config";
 import { signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import {
     HomeIcon,
     ClockIcon,
@@ -20,10 +21,24 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     const pathname = usePathname();
     const router = useRouter();
     const [user, setUser] = useState(null);
+    const [userData, setUserData] = useState(null);
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((u) => {
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
             setUser(u);
+            if (u) {
+                // Fetch additional user data from Firestore
+                try {
+                    const userDoc = await getDoc(doc(db, "users", u.uid));
+                    if (userDoc.exists()) {
+                        setUserData(userDoc.data());
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
+                }
+            } else {
+                setUserData(null);
+            }
         });
         return () => unsubscribe();
     }, []);
@@ -93,14 +108,18 @@ export default function Sidebar({ isOpen, setIsOpen }) {
 
                 {/* User Profile */}
                 <div className={`flex items-center gap-3 ${!isOpen ? "justify-center" : "bg-gray-50 dark:bg-slate-800 p-3 rounded-xl"}`}>
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold text-xs flex-shrink-0">
-                        {user?.email?.charAt(0).toUpperCase() || "U"}
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        {userData?.firstName && userData?.lastName
+                            ? `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}`.toUpperCase()
+                            : user?.displayName?.split(" ").map(n => n[0]).join("").toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
                     </div>
 
                     {isOpen && (
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">
-                                {user?.displayName || "User"}
+                                {userData?.firstName && userData?.lastName
+                                    ? `${userData.firstName} ${userData.lastName}`
+                                    : user?.displayName || "User"}
                             </p>
                             <p className="text-xs text-gray-400 truncate">
                                 {user?.email}
