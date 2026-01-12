@@ -27,7 +27,6 @@ export default function Sidebar({ isOpen, setIsOpen }) {
         const unsubscribe = auth.onAuthStateChanged(async (u) => {
             setUser(u);
             if (u) {
-                // Fetch additional user data from Firestore
                 try {
                     const userDoc = await getDoc(doc(db, "users", u.uid));
                     if (userDoc.exists()) {
@@ -51,91 +50,124 @@ export default function Sidebar({ isOpen, setIsOpen }) {
     const navItems = [
         { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
         { name: "History", href: "/history", icon: ClockIcon },
-        { name: "Settings", href: "#", icon: Cog6ToothIcon }, // Dummy
-        { name: "Admin", href: "#", icon: ShieldCheckIcon },   // Dummy
-        { name: "Help & Docs", href: "#", icon: QuestionMarkCircleIcon }, // Dummy
+        { name: "Settings", href: "#", icon: Cog6ToothIcon },
+        { name: "Admin", href: "#", icon: ShieldCheckIcon },
+        { name: "Help & Docs", href: "#", icon: QuestionMarkCircleIcon },
     ];
 
     return (
         <aside
-            className={`fixed top-0 left-0 h-full bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 z-50 flex flex-col ${isOpen ? "w-64" : "w-20"
-                }`}
+            className={`fixed top-0 left-0 h-full z-50 flex flex-col transition-all duration-300 ${isOpen ? "w-64" : "w-20"}`}
         >
-            {/* Header / Logo */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800">
-                <div className={`flex items-center gap-3 overflow-hidden ${!isOpen && "justify-center w-full"}`}>
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-                        HS
-                    </div>
-                    {isOpen && (
-                        <span className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">
-                            HireSight
-                        </span>
-                    )}
-                </div>
-            </div>
+            {/* Glassmorphism background */}
+            <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10" />
 
-            {/* Navigation */}
-            <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link
-                            key={item.name}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group ${isActive
-                                ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300"
-                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-gray-200"
-                                } ${!isOpen ? "justify-center" : ""}`}
-                            title={!isOpen ? item.name : ""}
-                        >
-                            <item.icon className={`w-6 h-6 flex-shrink-0 ${isActive ? "text-indigo-600 dark:text-indigo-300" : "group-hover:text-gray-900 dark:group-hover:text-gray-200"}`} />
-                            {isOpen && <span className="font-medium whitespace-nowrap">{item.name}</span>}
-                        </Link>
-                    );
-                })}
-            </nav>
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 via-transparent to-purple-500/5 dark:from-blue-500/10 dark:to-purple-500/10 pointer-events-none" />
 
-            {/* Bottom Actions / User Info */}
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
-                {/* Toggle Button (Desktop friendly if simpler) */}
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 transition-colors"
-                >
-                    {isOpen ? <ChevronLeftIcon className="w-5 h-5" /> : <ChevronRightIcon className="w-5 h-5" />}
-                </button>
-
-                {/* User Profile */}
-                <div className={`flex items-center gap-3 ${!isOpen ? "justify-center" : "bg-gray-50 dark:bg-slate-800 p-3 rounded-xl"}`}>
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {userData?.firstName && userData?.lastName
-                            ? `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}`.toUpperCase()
-                            : user?.displayName?.split(" ").map(n => n[0]).join("").toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
-                    </div>
-
-                    {isOpen && (
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">
-                                {userData?.firstName && userData?.lastName
-                                    ? `${userData.firstName} ${userData.lastName}`
-                                    : user?.displayName || "User"}
-                            </p>
-                            <p className="text-xs text-gray-400 truncate">
-                                {user?.email}
-                            </p>
+            {/* Content */}
+            <div className="relative z-10 flex flex-col h-full">
+                {/* Header / Logo */}
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200/50 dark:border-white/10">
+                    <div className={`flex items-center gap-3 overflow-hidden ${!isOpen && "justify-center w-full"}`}>
+                        {/* Gradient Logo */}
+                        <div className="relative flex-shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/25">
+                                H
+                            </div>
+                            {/* Glow effect */}
+                            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 blur-lg opacity-40 -z-10" />
                         </div>
-                    )}
+                        {isOpen && (
+                            <span className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
+                                HireSight
+                            </span>
+                        )}
+                    </div>
+                </div>
 
-                    {isOpen && (
-                        <button
-                            onClick={handleLogout}
-                            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-white dark:hover:bg-slate-700 shadow-sm"
-                            title="Logout"
-                        >
-                            <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                        </button>
-                    )}
+                {/* Navigation */}
+                <nav className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group overflow-hidden ${isActive
+                                        ? "text-white"
+                                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                    } ${!isOpen ? "justify-center" : ""}`}
+                                title={!isOpen ? item.name : ""}
+                            >
+                                {/* Active background */}
+                                {isActive && (
+                                    <>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl" />
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur-xl opacity-50" />
+                                    </>
+                                )}
+
+                                {/* Hover background */}
+                                {!isActive && (
+                                    <div className="absolute inset-0 bg-gray-100 dark:bg-white/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
+
+                                <item.icon className={`relative w-5 h-5 flex-shrink-0 ${isActive ? "text-white" : ""}`} />
+                                {isOpen && <span className="relative font-medium whitespace-nowrap">{item.name}</span>}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* Bottom Section */}
+                <div className="p-4 border-t border-gray-200/50 dark:border-white/10 space-y-4">
+                    {/* Toggle Button */}
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="w-full flex items-center justify-center p-2.5 rounded-xl bg-gray-100/80 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-all duration-200"
+                    >
+                        {isOpen ? <ChevronLeftIcon className="w-5 h-5" /> : <ChevronRightIcon className="w-5 h-5" />}
+                    </button>
+
+                    {/* User Profile */}
+                    <div className={`flex items-center gap-3 ${!isOpen ? "justify-center" : "bg-gradient-to-r from-gray-100/80 to-gray-50/50 dark:from-white/5 dark:to-white/[0.02] p-3 rounded-2xl border border-gray-200/50 dark:border-white/10"}`}>
+                        {/* Avatar with gradient ring */}
+                        <div className="relative flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-[2px]">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-white">
+                                    {userData?.firstName && userData?.lastName
+                                        ? `${userData.firstName.charAt(0)}${userData.lastName.charAt(0)}`.toUpperCase()
+                                        : user?.displayName?.split(" ").map(n => n[0]).join("").toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
+                                </div>
+                            </div>
+                            {/* Online indicator */}
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900" />
+                        </div>
+
+                        {isOpen && (
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">
+                                    {userData?.firstName && userData?.lastName
+                                        ? `${userData.firstName} ${userData.lastName}`
+                                        : user?.displayName || "User"}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {user?.email}
+                                </p>
+                            </div>
+                        )}
+
+                        {isOpen && (
+                            <button
+                                onClick={handleLogout}
+                                className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-white dark:hover:bg-slate-800"
+                                title="Logout"
+                            >
+                                <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </aside>

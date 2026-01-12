@@ -8,9 +8,7 @@ import { db } from "../../../firebase/config";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import * as use from "@tensorflow-models/universal-sentence-encoder";
 import cosineSimilarity from "cosine-similarity";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+import { getNextApiKey } from "../../../lib/apiKeyManager";
 
 // Simple hash for duplicate detection
 const generateHash = (text) => {
@@ -19,7 +17,7 @@ const generateHash = (text) => {
   for (i = 0; i < text.length; i++) {
     chr = text.charCodeAt(i);
     hash = ((hash << 5) - hash) + chr;
-    hash |= 0; // Convert to 32bit integer
+    hash |= 0;
   }
   return hash.toString();
 };
@@ -98,9 +96,7 @@ export const POST = async (req) => {
       });
     }
 
-    // 4. Gemini AI Deep Analysis
-    // We construct a structured prompt to get JSON back
-    // DIRECT API CALL to support custom/new models like gemini-2.5-flash
+    // 4. Gemini AI Deep Analysis with Round-Robin API Key
     let aiData = { jd_analysis: {}, candidates: [] };
 
     try {
@@ -135,8 +131,8 @@ export const POST = async (req) => {
           }
         `;
 
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      // Using v1beta and gemini-2.5-flash as explicitly requested by user
+      // Get next API key using round-robin from shared manager
+      const apiKey = getNextApiKey();
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       console.log("Calling Gemini 2.5 Flash via direct REST...");
@@ -167,20 +163,17 @@ export const POST = async (req) => {
 
     } catch (aiError) {
       console.error("GEMINI API FAILED (Falling back):", aiError.message);
-      // Fallback: Dummy data to prevent UI crash
       aiData.jd_analysis = {
         must_have_skills: ["AI Analysis Failed"],
         good_to_have_skills: ["Check Logs"]
       };
     }
 
-
     // 5. Merge Results
     const finalResults = resumes.map(r => {
       const sem = semanticScores.find(s => s.id === r.id);
       const ai = aiData.candidates?.find(c => c.id === r.id) || {};
 
-      // Bonus for experience match
       let experienceBonus = 0;
       const jdExp = aiData.jd_analysis?.experience_required_years || 0;
       const candExp = ai.experience_years || 0;
@@ -204,7 +197,6 @@ export const POST = async (req) => {
       };
     });
 
-    // Sort by score
     finalResults.sort((a, b) => b.score - a.score);
 
     return NextResponse.json({

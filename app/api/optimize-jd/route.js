@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getNextApiKey } from "../../../lib/apiKeyManager";
 
 export const POST = async (req) => {
     try {
@@ -11,7 +12,8 @@ export const POST = async (req) => {
             );
         }
 
-        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        // Get next API key using round-robin from shared manager
+        const apiKey = getNextApiKey();
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const prompt = `
