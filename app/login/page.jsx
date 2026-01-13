@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../../firebase/config";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import SystemInitLoader from "../components/SystemInitLoader";
 
 // Carousel images with quotes - AI/Hiring themed illustrations
 const carouselSlides = [
@@ -38,6 +40,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showTransition, setShowTransition] = useState(false);
+  const [formVisible, setFormVisible] = useState(true);
 
   // Auto-advance carousel
   useEffect(() => {
@@ -85,7 +89,9 @@ export default function LoginPage() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      router.push("/dashboard");
+      // Trigger cinematic transition
+      setFormVisible(false);
+      setTimeout(() => setShowTransition(true), 300);
     } catch (e) {
       if (e.code === "auth/email-already-in-use") {
         setError("Email already in use");
@@ -104,7 +110,15 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex">
       {/* Left Side - Image Carousel */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+      <motion.div
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+        animate={{
+          opacity: formVisible ? 1 : 0,
+          filter: formVisible ? "blur(0px)" : "blur(10px)",
+          x: formVisible ? 0 : -20
+        }}
+        transition={{ duration: 0.4 }}
+      >
         {/* Background Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 via-blue-600/20 to-transparent z-10" />
 
@@ -174,10 +188,18 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative overflow-hidden">
+      <motion.div
+        className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative overflow-hidden"
+        animate={{
+          opacity: formVisible ? 1 : 0,
+          filter: formVisible ? "blur(0px)" : "blur(10px)",
+          y: formVisible ? 0 : 20
+        }}
+        transition={{ duration: 0.4 }}
+      >
         {/* Background Orbs */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl" />
@@ -396,7 +418,6 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
-
           {/* Footer Links */}
           <div className="mt-8 text-center text-sm text-gray-500">
             <a href="#" className="hover:text-gray-400 transition-colors">Terms of Use</a>
@@ -404,7 +425,13 @@ export default function LoginPage() {
             <a href="#" className="hover:text-gray-400 transition-colors">Privacy Policy</a>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+
+      {/* Cinematic Transition Loader */}
+      <SystemInitLoader
+        isActive={showTransition}
+        onComplete={() => router.push("/dashboard")}
+      />
+    </div >
   );
 }
