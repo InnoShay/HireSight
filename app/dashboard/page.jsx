@@ -17,8 +17,9 @@ import {
 import { SparklesIcon } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
 import Sidebar from "../components/Sidebar";
+import AuthGuard from "../components/AuthGuard";
 
-export default function Dashboard() {
+function DashboardContent() {
   const [jobDesc, setJobDesc] = useState("");
   const [uploadedResumes, setUploadedResumes] = useState([]);
   const [ranking, setRanking] = useState(null);
@@ -270,10 +271,10 @@ export default function Dashboard() {
                         <span className="text-sm truncate max-w-[200px] text-gray-700 dark:text-gray-300">{file.filename}</span>
                         <span
                           className={`text-xs font-semibold px-3 py-1 rounded-full ${file.status === "done"
-                              ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
-                              : file.status === "error"
-                                ? "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400"
-                                : "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400"
+                            ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
+                            : file.status === "error"
+                              ? "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400"
+                              : "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400"
                             }`}
                         >
                           {file.status === "done" ? "Ready" : file.status}
@@ -339,8 +340,8 @@ export default function Dashboard() {
                   ].map((step) => (
                     <li key={step.num} className="flex gap-4">
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${step.color === "blue" ? "from-blue-500 to-blue-600" :
-                          step.color === "green" ? "from-green-500 to-emerald-600" :
-                            "from-purple-500 to-indigo-600"
+                        step.color === "green" ? "from-green-500 to-emerald-600" :
+                          "from-purple-500 to-indigo-600"
                         } flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0`}>
                         {step.num}
                       </div>
@@ -354,5 +355,14 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+// Wrap DashboardContent with AuthGuard for route protection
+export default function Dashboard() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
   );
 }

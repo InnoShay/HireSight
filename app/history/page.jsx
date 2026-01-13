@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { CalendarIcon, UserGroupIcon, BriefcaseIcon, ArrowRightIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import ThemeToggle from "../components/ThemeToggle";
 import Sidebar from "../components/Sidebar";
+import AuthGuard from "../components/AuthGuard";
 
-export default function HistoryPage() {
+function HistoryContent() {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -146,5 +147,14 @@ export default function HistoryPage() {
                 </div>
             </main>
         </div>
+    );
+}
+
+// Wrap HistoryContent with AuthGuard for route protection
+export default function HistoryPage() {
+    return (
+        <AuthGuard>
+            <HistoryContent />
+        </AuthGuard>
     );
 }

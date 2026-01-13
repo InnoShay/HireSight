@@ -17,8 +17,9 @@ import {
     ArrowRightCircleIcon
 } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
+import AuthGuard from "../components/AuthGuard";
 
-export default function ResultsPage() {
+function ResultsContent() {
     const router = useRouter();
     const [data, setData] = useState(null);
     const [viewMode, setViewMode] = useState("cards");
@@ -447,5 +448,14 @@ export default function ResultsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// Wrap ResultsContent with AuthGuard for route protection
+export default function ResultsPage() {
+    return (
+        <AuthGuard>
+            <ResultsContent />
+        </AuthGuard>
     );
 }
