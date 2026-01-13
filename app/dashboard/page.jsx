@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { auth, db } from "../../firebase/config";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -30,6 +30,67 @@ function DashboardContent() {
   const [loadingText, setLoadingText] = useState("Processing...");
 
   const router = useRouter();
+
+  // Send email notification when ranking is complete
+  const sendRankingEmail = async (rankedCandidates, jdAnalysis) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.log("No user logged in, skipping email notification");
+        return;
+      }
+
+      // Check if user has email notifications enabled
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        console.log("User document not found, skipping email notification");
+        return;
+      }
+
+      const userData = userDoc.data();
+      if (!userData.notifications?.emailResults) {
+        console.log("Email notifications disabled for user");
+        return;
+      }
+
+      console.log("Sending ranking notification email to:", user.email);
+
+      // Build top candidates data - use fileName and clean it up
+      const topCandidates = rankedCandidates.slice(0, 5).map(c => {
+        // Get name from fileName (remove .pdf extension and clean up)
+        let candidateName = c.fileName || c.name || "Candidate";
+        candidateName = candidateName.replace(/\.pdf$/i, "").replace(/_/g, " ");
+        return {
+          name: candidateName,
+          score: Math.round((c.score || 0) * 100) // Convert from 0.95 to 95%
+        };
+      });
+
+      // Send via our API route
+      const response = await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: user.email,
+          subject: `✅ Ranking Complete: ${jdAnalysis?.job_title || "Your Position"}`,
+          firstName: userData.firstName || "there",
+          jobTitle: jdAnalysis?.job_title || "your position",
+          topCandidates,
+          totalCandidates: rankedCandidates.length
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log("Ranking notification email sent successfully!");
+      } else {
+        console.error("Email API returned error:", result.error);
+      }
+    } catch (error) {
+      console.error("Failed to send ranking email:", error);
+    }
+  };
 
   const handleImproviseJD = async () => {
     if (!jobDesc.trim()) return alert("Please enter some text to improvise.");
@@ -129,6 +190,9 @@ function DashboardContent() {
               candidates: data.ranked,
               createdAt: new Date().toISOString(),
             });
+
+            // Send email notification if user has it enabled
+            sendRankingEmail(data.ranked, data.jdAnalysis);
           }
         } catch (error) {
           console.error("Failed to save history:", error);
