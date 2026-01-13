@@ -330,21 +330,40 @@ function DashboardContent() {
                     {uploadedResumes.map((file, idx) => (
                       <div
                         key={idx}
-                        className="flex justify-between items-center bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-100 dark:border-white/5"
+                        className="group flex justify-between items-center bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 transition-all"
                       >
-                        <span className="text-sm truncate max-w-[200px] text-gray-700 dark:text-gray-300">{file.filename}</span>
-                        <span
-                          className={`text-xs font-semibold px-3 py-1 rounded-full ${file.status === "done"
-                            ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
-                            : file.status === "error"
-                              ? "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400"
-                              : "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400"
-                            }`}
-                        >
-                          {file.status === "done" ? "Ready" : file.status}
-                        </span>
+                        <span className="text-sm truncate max-w-[180px] text-gray-700 dark:text-gray-300">{file.filename}</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs font-semibold px-3 py-1 rounded-full ${file.status === "done"
+                              ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400"
+                              : file.status === "error"
+                                ? "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400"
+                                : "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400"
+                              }`}
+                          >
+                            {file.status === "done" ? "Ready" : file.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setUploadedResumes(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all"
+                            title="Remove file"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
+                    {uploadedResumes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setUploadedResumes([])}
+                        className="w-full mt-2 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                      >
+                        Clear all files
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
