@@ -17,10 +17,12 @@ import {
     XMarkIcon,
     CheckCircleIcon,
     ArrowRightCircleIcon,
-    SparklesIcon
+    SparklesIcon,
+    PlayIcon
 } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
 import AuthGuard from "../components/AuthGuard";
+import TypingChallenge from "../components/TypingChallenge";
 
 // Skeleton Loader Component
 const SkeletonPulse = ({ className }) => (
@@ -47,6 +49,9 @@ function ResultsContent() {
     const [selectedForCompare, setSelectedForCompare] = useState([]);
     const [showCompareModal, setShowCompareModal] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
+    const [showTypingGame, setShowTypingGame] = useState(false);
+    const [showGamePrompt, setShowGamePrompt] = useState(true);
+
 
     const toggleCompare = (id) => {
         if (selectedForCompare.includes(id)) {
@@ -686,6 +691,81 @@ function ResultsContent() {
                                     </div>
                                 );
                             })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Game Prompt Popup - Shows when AI is loading */}
+            {aiLoading && showGamePrompt && !showTypingGame && (
+                <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl shadow-purple-500/20 border border-gray-200 dark:border-white/10 p-5 max-w-sm">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shrink-0">
+                                <PlayIcon className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-gray-800 dark:text-white mb-1">While you wait...</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    AI is analyzing your candidates. Want to play a typing speed challenge?
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowTypingGame(true);
+                                            setShowGamePrompt(false);
+                                        }}
+                                        className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:scale-105 text-sm"
+                                    >
+                                        Play Now
+                                    </button>
+                                    <button
+                                        onClick={() => setShowGamePrompt(false)}
+                                        className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium transition-colors"
+                                    >
+                                        Skip
+                                    </button>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowGamePrompt(false)}
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+                            >
+                                <XMarkIcon className="w-4 h-4 text-gray-400" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Typing Challenge Game */}
+            <TypingChallenge
+                isOpen={showTypingGame}
+                onClose={() => setShowTypingGame(false)}
+                onAnalysisComplete={() => setShowTypingGame(false)}
+                aiLoading={aiLoading}
+            />
+
+            {/* Analysis Complete Toast - Shows when AI finishes and game is not open */}
+            {!aiLoading && !showTypingGame && showGamePrompt && (
+                <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-2xl shadow-green-500/30 p-5 max-w-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                                <CheckCircleIcon className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-white mb-0.5">Analysis Complete!</h3>
+                                <p className="text-sm text-white/80">
+                                    All candidate rankings are now ready
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowGamePrompt(false)}
+                                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                            >
+                                <XMarkIcon className="w-4 h-4 text-white" />
+                            </button>
                         </div>
                     </div>
                 </div>
