@@ -67,18 +67,34 @@ function ResultsContent() {
 
     // Send email when analysis is complete
     const sendRankingEmail = useCallback(async (rankedCandidates, jdAnalysisData) => {
-        if (emailSent) return;
+        if (emailSent) {
+            console.log("[Email] Already sent, skipping...");
+            return;
+        }
 
         try {
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                console.log("[Email] No authenticated user found");
+                return;
+            }
+
+            console.log("[Email] Checking notification settings for user:", user.email);
 
             const userDocRef = doc(db, "users", user.uid);
             const userDoc = await getDoc(userDocRef);
             const userData = userDoc.exists() ? userDoc.data() : {};
 
-            if (!userData.emailResults) {
-                console.log("Email notifications disabled for this user");
+            console.log("[Email] User notification settings:", {
+                emailResults: userData.emailResults,
+                hasUserDoc: userDoc.exists()
+            });
+
+            // Default to true if emailResults is not explicitly set to false
+            const shouldSendEmail = userData.emailResults !== false;
+
+            if (!shouldSendEmail) {
+                console.log("[Email] Email notifications disabled for this user");
                 return;
             }
 
@@ -90,6 +106,8 @@ function ResultsContent() {
                     score: Math.round((c.score || 0) * 100)
                 };
             });
+
+            console.log("[Email] Sending to:", user.email, "with", topCandidates.length, "candidates");
 
             const response = await fetch("/api/send-notification", {
                 method: "POST",
@@ -105,12 +123,16 @@ function ResultsContent() {
             });
 
             const result = await response.json();
+            console.log("[Email] API Response:", result);
+
             if (result.success) {
-                console.log("Ranking email sent successfully!");
+                console.log("[Email] ✅ Ranking email sent successfully!");
                 setEmailSent(true);
+            } else {
+                console.error("[Email] ❌ Email API returned error:", result.error || result.message);
             }
         } catch (error) {
-            console.error("Failed to send ranking email:", error);
+            console.error("[Email] ❌ Failed to send ranking email:", error);
         }
     }, [emailSent]);
 

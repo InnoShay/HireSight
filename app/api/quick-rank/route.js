@@ -102,7 +102,7 @@ export const POST = async (req) => {
             const sem = semanticScores.find(s => s.id === r.id);
             return {
                 id: r.id,
-                filename: r.fileName || "Unknown",
+                filename: r.filename || r.fileName || "Unknown",
                 score: sem?.score || 0,
                 isDuplicate: r.isDuplicate,
                 rawText: r.rawText?.substring(0, 2000) || "", // Send partial for AI analysis later

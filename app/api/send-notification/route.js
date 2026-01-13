@@ -5,9 +5,23 @@ export async function POST(request) {
   try {
     const { to, subject, firstName, jobTitle, topCandidates, totalCandidates } = await request.json();
 
+    console.log("[Send Notification] Request received:", { to, subject, candidateCount: topCandidates?.length });
+
     if (!to || !subject) {
+      console.error("[Send Notification] Missing required fields");
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    // Check for environment variables
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("[Send Notification] EMAIL_USER or EMAIL_PASS environment variables not set");
+      return NextResponse.json({
+        success: false,
+        error: 'Email configuration missing. Please set EMAIL_USER and EMAIL_PASS environment variables.'
+      }, { status: 500 });
+    }
+
+    console.log("[Send Notification] Using email:", process.env.EMAIL_USER);
 
     // Create transporter using Gmail SMTP
     // User needs to set up an App Password in their Google Account
