@@ -28,19 +28,13 @@ export default function Footer() {
                     {/* Links */}
                     <div className="flex items-center gap-8">
                         <a
-                            href="#"
-                            className="text-sm text-gray-400 hover:text-white transition-colors"
-                        >
-                            Terms of Service
-                        </a>
-                        <a
-                            href="#"
+                            href="/privacy-policy"
                             className="text-sm text-gray-400 hover:text-white transition-colors"
                         >
                             Privacy Policy
                         </a>
                         <a
-                            href="#"
+                            href="/contact"
                             className="text-sm text-gray-400 hover:text-white transition-colors"
                         >
                             Contact
@@ -49,24 +43,11 @@ export default function Footer() {
 
                     {/* Social Icons */}
                     <div className="flex items-center gap-4">
-                        {/* Twitter / X */}
-                        <a
-                            href="#"
-                            className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
-                            aria-label="Twitter"
-                        >
-                            <svg
-                                className="w-5 h-5 text-gray-400"
-                                fill="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                            </svg>
-                        </a>
-
                         {/* LinkedIn */}
                         <a
-                            href="#"
+                            href="https://www.linkedin.com/in/innoshay/"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                             aria-label="LinkedIn"
                         >
@@ -81,7 +62,9 @@ export default function Footer() {
 
                         {/* GitHub */}
                         <a
-                            href="#"
+                            href="https://github.com/InnoShay"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="w-10 h-10 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                             aria-label="GitHub"
                         >

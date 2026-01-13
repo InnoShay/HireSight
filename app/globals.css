@@ -897,6 +897,134 @@ body {
 }
 
 /* ============================================
+   NAVIGATION DROPDOWN
+   ============================================ */
+
+.nav-item {
+  position: relative;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  color: #ffffff;
+}
+
+.nav-link svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-item:hover .nav-link svg {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  min-width: 280px;
+  padding: 0.75rem;
+  background: rgba(17, 17, 24, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 40px rgba(139, 92, 246, 0.1);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 200;
+}
+
+.nav-item:hover .nav-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 0.625rem;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover .dropdown-icon {
+  background: rgba(139, 92, 246, 0.2);
+  transform: scale(1.05);
+}
+
+.dropdown-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #94a3b8;
+  transition: color 0.2s ease;
+}
+
+.dropdown-item:hover .dropdown-icon svg {
+  color: #ffffff;
+}
+
+.dropdown-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.dropdown-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.dropdown-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* ============================================
+   FEATURE TILE HOVER EFFECTS
+   ============================================ */
+
+.feature-tile:hover .feature-title {
+  color: var(--hover-color, #ffffff);
+}
+
+/* ============================================
    SECTION BACKGROUNDS
    ============================================ */
 

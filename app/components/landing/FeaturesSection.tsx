@@ -303,8 +303,8 @@ export default function FeaturesSection() {
                     {[
                         { value: "95%", label: "Accuracy Rate", color: "text-blue-600" },
                         { value: "10x", label: "Faster Screening", color: "text-purple-600" },
-                        { value: "500+", label: "Companies Trust Us", color: "text-cyan-600" },
-                        { value: "1M+", label: "Resumes Analyzed", color: "text-pink-600" },
+                        { value: "99%", label: "Satisfaction Rate", color: "text-cyan-600" },
+                        { value: "1K+", label: "Resumes Analyzed", color: "text-pink-600" },
                     ].map((stat, i) => (
                         <div
                             key={i}

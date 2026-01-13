@@ -218,7 +218,7 @@ export default function ShowcaseSection() {
                             title: "Bulk Processing",
                             description: "Upload multiple resumes and analyze them all at once with batch processing capabilities.",
                             gradient: "from-blue-500 to-blue-600",
-                            color: "text-blue-400",
+                            hoverColor: "#60a5fa",
                         },
                         {
                             icon: (
@@ -229,7 +229,7 @@ export default function ShowcaseSection() {
                             title: "Smart Matching",
                             description: "AI understands context and nuance to find candidates who truly fit your requirements.",
                             gradient: "from-green-500 to-emerald-600",
-                            color: "text-green-400",
+                            hoverColor: "#4ade80",
                         },
                         {
                             icon: (
@@ -240,7 +240,7 @@ export default function ShowcaseSection() {
                             title: "Detailed Insights",
                             description: "Get comprehensive reports with skill breakdowns, experience analysis, and recommendations.",
                             gradient: "from-purple-500 to-purple-600",
-                            color: "text-purple-400",
+                            hoverColor: "#c084fc",
                         },
                         {
                             icon: (
@@ -251,7 +251,7 @@ export default function ShowcaseSection() {
                             title: "Lightning Fast",
                             description: "Analyze hundreds of resumes in seconds, not hours. AI-powered speed meets accuracy.",
                             gradient: "from-amber-500 to-orange-600",
-                            color: "text-amber-400",
+                            hoverColor: "#fbbf24",
                         },
                         {
                             icon: (
@@ -262,7 +262,7 @@ export default function ShowcaseSection() {
                             title: "Privacy First",
                             description: "Your data stays secure with enterprise-grade encryption and compliance standards.",
                             gradient: "from-cyan-500 to-cyan-600",
-                            color: "text-cyan-400",
+                            hoverColor: "#22d3ee",
                         },
                         {
                             icon: (
@@ -273,26 +273,32 @@ export default function ShowcaseSection() {
                             title: "Easy Integration",
                             description: "Connect with your existing ATS and HR tools through our robust API and integrations.",
                             gradient: "from-pink-500 to-rose-600",
-                            color: "text-pink-400",
+                            hoverColor: "#f472b6",
                         },
                     ].map((feature, i) => (
                         <div
                             key={i}
-                            className="group"
-                            style={{ transitionDelay: `${500 + i * 100}ms` }}
+                            className="feature-tile group relative p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-500 ease-out hover:-translate-y-1"
+                            style={{
+                                transitionDelay: `${500 + i * 100}ms`,
+                                ['--hover-color' as string]: feature.hoverColor
+                            }}
                         >
+                            {/* Hover Glow Effect */}
+                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500 pointer-events-none`} />
+
                             {/* Icon */}
-                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                            <div className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-5 group-hover:scale-110 group-hover:rotate-2 transition-all duration-500 ease-out shadow-lg`}>
                                 {feature.icon}
                             </div>
 
                             {/* Title */}
-                            <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:${feature.gradient} transition-colors">
+                            <h3 className="feature-title relative text-lg font-semibold mb-3 transition-colors duration-300 text-white">
                                 {feature.title}
                             </h3>
 
                             {/* Description */}
-                            <p className="text-sm text-gray-400 leading-relaxed">
+                            <p className="relative text-sm text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
                                 {feature.description}
                             </p>
                         </div>
