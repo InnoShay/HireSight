@@ -163,14 +163,11 @@ function DashboardContent() {
 
     try {
       setLoadingText("Parsing Job Description...");
-      await new Promise((r) => setTimeout(r, 600));
-      setLoadingText("Scanning Resumes...");
-      await new Promise((r) => setTimeout(r, 800));
-      setLoadingText("Computing Semantic Embeddings...");
-      await new Promise((r) => setTimeout(r, 1000));
-      setLoadingText("Ranking with HireSight...");
+      await new Promise((r) => setTimeout(r, 400));
+      setLoadingText("Computing Semantic Scores...");
 
-      const res = await fetch("/api/analyze-resumes", {
+      // Use quick-rank API for fast initial scoring
+      const res = await fetch("/api/quick-rank", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobDescription: jobDesc, resumeIds: validResumes.map((r) => r.id) }),
@@ -178,25 +175,18 @@ function DashboardContent() {
       const data = await res.json();
 
       if (data.ranked) {
-        setLoadingText("Finalizing Leaderboard...");
-        await new Promise((r) => setTimeout(r, 500));
-        sessionStorage.setItem("rankingResults", JSON.stringify(data));
-        try {
-          if (auth.currentUser) {
-            await addDoc(collection(db, "history"), {
-              userId: auth.currentUser.uid,
-              jobDescription: jobDesc,
-              jdAnalysis: data.jdAnalysis,
-              candidates: data.ranked,
-              createdAt: new Date().toISOString(),
-            });
+        setLoadingText("Loading Results...");
+        await new Promise((r) => setTimeout(r, 300));
 
-            // Send email notification if user has it enabled
-            sendRankingEmail(data.ranked, data.jdAnalysis);
-          }
-        } catch (error) {
-          console.error("Failed to save history:", error);
-        }
+        // Store with flag indicating AI analysis needed
+        sessionStorage.setItem("rankingResults", JSON.stringify({
+          ranked: data.ranked,
+          jobDescription: data.jobDescription || jobDesc,
+          needsAiAnalysis: true, // Flag for results page
+          jdAnalysis: null // Will be filled by AI analysis
+        }));
+
+        // Don't save to history yet - wait for full analysis in results page
         router.push("/results");
       } else {
         alert("Ranking returned no results. Please check input.");

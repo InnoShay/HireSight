@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { auth, db } from "../../firebase/config";
+import { collection, addDoc, doc, getDoc } from "firebase/firestore";
 import {
     TrophyIcon,
     ChartBarIcon,
@@ -14,18 +16,37 @@ import {
     ArrowDownTrayIcon,
     XMarkIcon,
     CheckCircleIcon,
-    ArrowRightCircleIcon
+    ArrowRightCircleIcon,
+    SparklesIcon
 } from "@heroicons/react/24/solid";
 import ThemeToggle from "../components/ThemeToggle";
 import AuthGuard from "../components/AuthGuard";
 
+// Skeleton Loader Component
+const SkeletonPulse = ({ className }) => (
+    <div className={`animate-pulse bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-white/10 dark:via-white/5 dark:to-white/10 bg-[length:200%_100%] animate-shimmer rounded ${className}`} />
+);
+
+// AI Analysis Loading Indicator
+const AiLoadingBadge = () => (
+    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg border border-blue-500/30">
+        <SparklesIcon className="w-3 h-3 text-blue-500 animate-pulse" />
+        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">AI Analyzing...</span>
+    </div>
+);
+
 function ResultsContent() {
     const router = useRouter();
     const [data, setData] = useState(null);
+    const [candidates, setCandidates] = useState([]);
+    const [jdAnalysis, setJdAnalysis] = useState(null);
+    const [aiLoading, setAiLoading] = useState(true);
+    const [aiError, setAiError] = useState(null);
     const [viewMode, setViewMode] = useState("cards");
     const [expandedRow, setExpandedRow] = useState(null);
     const [selectedForCompare, setSelectedForCompare] = useState([]);
     const [showCompareModal, setShowCompareModal] = useState(false);
+    const [emailSent, setEmailSent] = useState(false);
 
     const toggleCompare = (id) => {
         if (selectedForCompare.includes(id)) {
@@ -39,14 +60,185 @@ function ResultsContent() {
         }
     };
 
+    // Send email when analysis is complete
+    const sendRankingEmail = useCallback(async (rankedCandidates, jdAnalysisData) => {
+        if (emailSent) return;
+
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            const userData = userDoc.exists() ? userDoc.data() : {};
+
+            if (!userData.emailResults) {
+                console.log("Email notifications disabled for this user");
+                return;
+            }
+
+            const topCandidates = rankedCandidates.slice(0, 5).map(c => {
+                let candidateName = c.filename || c.name || "Candidate";
+                candidateName = candidateName.replace(/\.pdf$/i, "").replace(/_/g, " ");
+                return {
+                    name: candidateName,
+                    score: Math.round((c.score || 0) * 100)
+                };
+            });
+
+            const response = await fetch("/api/send-notification", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to: user.email,
+                    subject: `✅ Ranking Complete: ${jdAnalysisData?.job_title || "Your Position"}`,
+                    firstName: userData.firstName || "there",
+                    jobTitle: jdAnalysisData?.job_title || "your position",
+                    topCandidates,
+                    totalCandidates: rankedCandidates.length
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                console.log("Ranking email sent successfully!");
+                setEmailSent(true);
+            }
+        } catch (error) {
+            console.error("Failed to send ranking email:", error);
+        }
+    }, [emailSent]);
+
+    // Save to history when analysis is complete
+    const saveToHistory = useCallback(async (rankedCandidates, jdAnalysisData, jobDescription) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            await addDoc(collection(db, "history"), {
+                userId: user.uid,
+                jobDescription: jobDescription,
+                jdAnalysis: jdAnalysisData,
+                candidates: rankedCandidates,
+                createdAt: new Date().toISOString(),
+            });
+            console.log("History saved successfully!");
+        } catch (error) {
+            console.error("Failed to save history:", error);
+        }
+    }, []);
+
+    // Load data and fetch AI analysis progressively
     useEffect(() => {
         const storedData = sessionStorage.getItem("rankingResults");
-        if (!storedData) { router.push("/dashboard"); return; }
-        try { setData(JSON.parse(storedData)); }
-        catch (e) { console.error("Failed to parse ranking data", e); router.push("/dashboard"); }
+        if (!storedData) {
+            router.push("/dashboard");
+            return;
+        }
+
+        try {
+            const parsedData = JSON.parse(storedData);
+            setData(parsedData);
+            setCandidates(parsedData.ranked || []);
+            setJdAnalysis(parsedData.jdAnalysis);
+
+            // If AI analysis is needed, fetch it progressively
+            if (parsedData.needsAiAnalysis && parsedData.ranked?.length > 0) {
+                fetchAiAnalysis(parsedData.ranked, parsedData.jobDescription);
+            } else {
+                // Already have full data
+                setAiLoading(false);
+            }
+        } catch (e) {
+            console.error("Failed to parse ranking data", e);
+            router.push("/dashboard");
+        }
     }, [router]);
 
-    if (!data) return (
+    // Fetch AI analysis in background
+    const fetchAiAnalysis = async (rankedCandidates, jobDescription) => {
+        setAiLoading(true);
+        setAiError(null);
+
+        try {
+            console.log("[Results] Fetching AI analysis for", rankedCandidates.length, "candidates...");
+
+            const response = await fetch("/api/ai-analysis", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    jobDescription,
+                    candidates: rankedCandidates.map(c => ({
+                        id: c.id,
+                        rawText: c.rawText
+                    }))
+                })
+            });
+
+            const aiResult = await response.json();
+
+            if (aiResult.success || aiResult.candidateAnalysis) {
+                // Update JD Analysis
+                setJdAnalysis(aiResult.jdAnalysis);
+
+                // Update candidates with AI analysis
+                const updatedCandidates = rankedCandidates.map(c => ({
+                    ...c,
+                    aiAnalysis: aiResult.candidateAnalysis?.[c.id] || {
+                        matchedKeywords: [],
+                        missingKeywords: [],
+                        experienceYears: "?",
+                        whyHigh: "Analysis complete.",
+                        improvement: "Review manually.",
+                        summary: "Basic match analysis."
+                    },
+                    aiLoading: false
+                }));
+
+                setCandidates(updatedCandidates);
+
+                // Update session storage with full data
+                const fullData = {
+                    ranked: updatedCandidates,
+                    jdAnalysis: aiResult.jdAnalysis,
+                    jobDescription,
+                    needsAiAnalysis: false
+                };
+                sessionStorage.setItem("rankingResults", JSON.stringify(fullData));
+                setData(fullData);
+
+                // Now save to history and send email
+                await saveToHistory(updatedCandidates, aiResult.jdAnalysis, jobDescription);
+                sendRankingEmail(updatedCandidates, aiResult.jdAnalysis);
+
+                console.log("[Results] AI analysis complete!");
+            } else {
+                throw new Error(aiResult.error || "AI analysis failed");
+            }
+        } catch (error) {
+            console.error("[Results] AI analysis error:", error);
+            setAiError(error.message);
+
+            // Mark all candidates as having failed AI analysis
+            const updatedCandidates = rankedCandidates.map(c => ({
+                ...c,
+                aiAnalysis: {
+                    matchedKeywords: [],
+                    missingKeywords: [],
+                    experienceYears: "?",
+                    whyHigh: "AI analysis temporarily unavailable.",
+                    improvement: "Please try again later.",
+                    summary: "Basic semantic match only."
+                },
+                aiLoading: false
+            }));
+            setCandidates(updatedCandidates);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    if (!data || candidates.length === 0) return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 dark:from-[#0a0a0f] dark:to-[#0d0d14] flex items-center justify-center">
             <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -55,7 +247,6 @@ function ResultsContent() {
         </div>
     );
 
-    const { ranked: candidates, jdAnalysis } = data;
     const toggleRow = (id) => { setExpandedRow(expandedRow === id ? null : id); };
 
     const exportCSV = () => {
@@ -103,9 +294,28 @@ function ResultsContent() {
                         <button onClick={() => router.push("/dashboard")} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition-colors text-gray-500 dark:text-gray-400">
                             <ArrowLeftIcon className="w-5 h-5" />
                         </button>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                            Ranking Results
-                        </h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                Ranking Results
+                            </h1>
+                            {aiLoading && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full border border-blue-500/20">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">AI analyzing...</span>
+                                </div>
+                            )}
+                            {!aiLoading && !aiError && (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20">
+                                    <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
+                                    <span className="text-xs font-medium text-green-600 dark:text-green-400">Complete</span>
+                                </div>
+                            )}
+                            {aiError && (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-full border border-amber-500/20">
+                                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Basic mode</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="flex items-center space-x-3">
                         <ThemeToggle />
@@ -253,14 +463,22 @@ function ResultsContent() {
                                                 <div>
                                                     <div className="flex justify-between items-baseline mb-2">
                                                         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Key Matches</p>
-                                                        {ai.missingKeywords?.length > 0 && <span className="text-[10px] text-red-500 font-bold uppercase">{ai.missingKeywords.length} Missing</span>}
+                                                        {!candidate.aiLoading && ai.missingKeywords?.length > 0 && <span className="text-[10px] text-red-500 font-bold uppercase">{ai.missingKeywords.length} Missing</span>}
+                                                        {candidate.aiLoading && <AiLoadingBadge />}
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {ai.matchedKeywords?.length > 0 ? ai.matchedKeywords.slice(0, 8).map((kw, i) => (
+                                                        {candidate.aiLoading ? (
+                                                            <>
+                                                                <SkeletonPulse className="h-6 w-16" />
+                                                                <SkeletonPulse className="h-6 w-20" />
+                                                                <SkeletonPulse className="h-6 w-14" />
+                                                                <SkeletonPulse className="h-6 w-24" />
+                                                            </>
+                                                        ) : ai.matchedKeywords?.length > 0 ? ai.matchedKeywords.slice(0, 8).map((kw, i) => (
                                                             <span key={i} className="px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs rounded-lg font-medium">{kw}</span>
                                                         )) : <span className="text-xs text-gray-400 italic">No specific matches</span>}
                                                     </div>
-                                                    {ai.missingKeywords?.length > 0 && (
+                                                    {!candidate.aiLoading && ai.missingKeywords?.length > 0 && (
                                                         <div className="mt-2 flex flex-wrap gap-2">
                                                             {ai.missingKeywords.slice(0, 5).map((kw, i) => (
                                                                 <span key={i} className="px-2 py-1 bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400 text-xs rounded-lg font-medium line-through">{kw}</span>
@@ -270,7 +488,11 @@ function ResultsContent() {
                                                 </div>
                                                 <div className="flex items-center justify-between text-sm bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-100 dark:border-white/5">
                                                     <span className="text-gray-500 dark:text-gray-400">Experience Match</span>
-                                                    <span className="font-semibold text-gray-800 dark:text-white">{ai.experienceYears !== "N/A" ? `${ai.experienceYears} Years` : "Not detected"}</span>
+                                                    {candidate.aiLoading ? (
+                                                        <SkeletonPulse className="h-5 w-20" />
+                                                    ) : (
+                                                        <span className="font-semibold text-gray-800 dark:text-white">{ai.experienceYears !== "?" && ai.experienceYears !== "N/A" ? `${ai.experienceYears} Years` : "Not detected"}</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -283,16 +505,37 @@ function ResultsContent() {
                                                 <div className="p-6 bg-gray-50 dark:bg-white/[0.02] space-y-4 border-t border-gray-100 dark:border-white/5">
                                                     <div className="bg-white dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10">
                                                         <h4 className="text-xs font-bold text-indigo-500 uppercase mb-2">Resume Summary</h4>
-                                                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.summary}</p>
+                                                        {candidate.aiLoading ? (
+                                                            <div className="space-y-2">
+                                                                <SkeletonPulse className="h-4 w-full" />
+                                                                <SkeletonPulse className="h-4 w-3/4" />
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.summary}</p>
+                                                        )}
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         <div className="bg-green-50 dark:bg-green-500/10 p-4 rounded-xl border border-green-100 dark:border-green-500/20">
                                                             <h4 className="text-xs font-bold text-green-700 dark:text-green-400 uppercase mb-2">Why High Score?</h4>
-                                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.whyHigh}</p>
+                                                            {candidate.aiLoading ? (
+                                                                <div className="space-y-2">
+                                                                    <SkeletonPulse className="h-4 w-full" />
+                                                                    <SkeletonPulse className="h-4 w-2/3" />
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.whyHigh}</p>
+                                                            )}
                                                         </div>
                                                         <div className="bg-amber-50 dark:bg-amber-500/10 p-4 rounded-xl border border-amber-100 dark:border-amber-500/20">
                                                             <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase mb-2">Improvement Areas</h4>
-                                                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.improvement}</p>
+                                                            {candidate.aiLoading ? (
+                                                                <div className="space-y-2">
+                                                                    <SkeletonPulse className="h-4 w-full" />
+                                                                    <SkeletonPulse className="h-4 w-2/3" />
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ai.improvement}</p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
