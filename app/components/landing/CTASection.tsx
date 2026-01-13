@@ -53,8 +53,8 @@ export default function CTASection() {
                     {/* Glowing Orb */}
                     <div
                         className={`flex-shrink-0 transition-all duration-1000 ${isVisible
-                                ? "opacity-100 translate-x-0"
-                                : "opacity-0 -translate-x-12"
+                            ? "opacity-100 translate-x-0"
+                            : "opacity-0 -translate-x-12"
                             }`}
                     >
                         <div className="relative">
@@ -106,8 +106,8 @@ export default function CTASection() {
                     {/* Content */}
                     <div
                         className={`flex-1 text-center lg:text-left transition-all duration-1000 delay-200 ${isVisible
-                                ? "opacity-100 translate-x-0"
-                                : "opacity-0 translate-x-12"
+                            ? "opacity-100 translate-x-0"
+                            : "opacity-0 translate-x-12"
                             }`}
                     >
                         <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
@@ -148,18 +148,22 @@ export default function CTASection() {
                         </div>
 
                         {/* Trust Indicators */}
-                        <div className="mt-10 flex items-center gap-6 justify-center lg:justify-start">
-                            <div className="flex -space-x-2">
-                                {[1, 2, 3, 4].map((i) => (
-                                    <div
+                        <div className="mt-10 flex items-center gap-4 justify-center lg:justify-start">
+                            {/* Star Rating */}
+                            <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((i) => (
+                                    <svg
                                         key={i}
-                                        className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gradient-to-br from-gray-600 to-gray-800"
-                                    />
+                                        className="w-5 h-5 text-amber-400"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                    >
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
                                 ))}
                             </div>
-                            <div className="text-sm text-gray-500">
-                                <span className="text-white font-medium">500+</span> companies
-                                trust HireSight
+                            <div className="text-sm text-gray-400">
+                                <span className="text-white font-medium">Loved</span> by early adopters
                             </div>
                         </div>
                     </div>
