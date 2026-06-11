@@ -142,9 +142,16 @@ function DashboardContent() {
       try {
         const res = await fetch("/api/upload-resume", { method: "POST", body: formData });
         const data = await res.json();
-        setUploadedResumes((prev) =>
-          prev.map((r) => (r.filename === item.filename ? { ...r, status: "done", id: data.id } : r))
-        );
+        if (!res.ok || !data.id) {
+          console.error("Upload failed for", item.filename, data.error || "No ID returned");
+          setUploadedResumes((prev) =>
+            prev.map((r) => (r.filename === item.filename ? { ...r, status: "error" } : r))
+          );
+        } else {
+          setUploadedResumes((prev) =>
+            prev.map((r) => (r.filename === item.filename ? { ...r, status: "done", id: data.id } : r))
+          );
+        }
       } catch (err) {
         setUploadedResumes((prev) =>
           prev.map((r) => (r.filename === item.filename ? { ...r, status: "error" } : r))

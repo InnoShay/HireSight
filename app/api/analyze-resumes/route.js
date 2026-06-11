@@ -4,11 +4,14 @@ export const dynamic = "force-dynamic";
 
 import * as tf from "@tensorflow/tfjs";
 import { NextResponse } from "next/server";
-import { db } from "../../../firebase/config";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import * as use from "@tensorflow-models/universal-sentence-encoder";
 import cosineSimilarity from "cosine-similarity";
 import { getNextApiKey } from "../../../lib/apiKeyManager";
+
+// Ensure the in-memory store exists
+if (!global.resumeStore) {
+  global.resumeStore = new Map();
+}
 
 // Simple hash for duplicate detection
 const generateHash = (text) => {
@@ -35,31 +38,31 @@ export const POST = async (req) => {
       );
     }
 
-    // 1. Fetch Data
+    // 1. Fetch Data from in-memory store
     console.log("Analyzing Job:", jobDesc.substring(0, 50));
     console.log("Resume IDs received:", resumeIds);
+    console.log("Store has", global.resumeStore.size, "resumes");
 
     let resumes = [];
     if (resumeIds.length > 0) {
-      const resumeDocs = await Promise.all(
-        resumeIds.map((id) => getDoc(doc(db, "resumes", id)))
-      );
-      resumes = resumeDocs
-        .filter((d) => {
-          if (!d.exists()) console.warn(`Resume ID not found in DB: ${d.id}`);
-          return d.exists();
+      resumes = resumeIds
+        .filter((id) => {
+          if (!global.resumeStore.has(id)) {
+            console.warn(`Resume ID not found in store: ${id}`);
+            return false;
+          }
+          return true;
         })
-        .map((d) => ({ id: d.id, ...d.data() }));
+        .map((id) => ({ id, ...global.resumeStore.get(id) }));
     } else {
-      console.log("No IDs provided, fetching all resumes...");
-      const querySnapshot = await getDocs(collection(db, "resumes"));
-      resumes = querySnapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
+      console.log("No IDs provided, fetching all resumes from store...");
+      resumes = Array.from(global.resumeStore.entries()).map(([id, data]) => ({
+        id,
+        ...data,
       }));
     }
 
-    console.log(`Fetched ${resumes.length} resumes from DB.`);
+    console.log(`Fetched ${resumes.length} resumes from store.`);
 
     if (resumes.length === 0) {
       return NextResponse.json({ ranked: [] });
