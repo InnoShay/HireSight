@@ -149,7 +149,7 @@ function DashboardContent() {
           );
         } else {
           setUploadedResumes((prev) =>
-            prev.map((r) => (r.filename === item.filename ? { ...r, status: "done", id: data.id } : r))
+            prev.map((r) => (r.filename === item.filename ? { ...r, status: "done", id: data.id, rawText: data.rawText } : r))
           );
         }
       } catch (err) {
@@ -177,7 +177,10 @@ function DashboardContent() {
       const res = await fetch("/api/quick-rank", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription: jobDesc, resumeIds: validResumes.map((r) => r.id) }),
+        body: JSON.stringify({
+          jobDescription: jobDesc,
+          resumes: validResumes.map((r) => ({ id: r.id, filename: r.filename, rawText: r.rawText }))
+        }),
       });
       const data = await res.json();
 

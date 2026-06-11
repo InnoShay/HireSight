@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import PDFParser from "pdf2json";
 
-// In-memory store for parsed resumes (shared across API routes via module cache)
-// In production, use a database or Redis
-if (!global.resumeStore) {
-  global.resumeStore = new Map();
-}
-
 export const POST = async (req) => {
   try {
     const formData = await req.formData();
@@ -42,16 +36,15 @@ export const POST = async (req) => {
       pdfParser.parseBuffer(buffer);
     });
 
-    // Generate a unique ID and store in memory
+    // Generate a unique ID and return parsed text to client
     const id = `resume_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    global.resumeStore.set(id, {
-      filename: file.name,
-      rawText: extractedText,
-      createdAt: new Date().toISOString(),
-    });
 
-    return NextResponse.json({ message: "Resume parsed & stored!", id, filename: file.name });
+    return NextResponse.json({
+      message: "Resume parsed successfully!",
+      id,
+      filename: file.name,
+      rawText: extractedText
+    });
   } catch (error) {
     console.error("UPLOAD FAIL:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

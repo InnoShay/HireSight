@@ -7,11 +7,6 @@ import { NextResponse } from "next/server";
 import * as use from "@tensorflow-models/universal-sentence-encoder";
 import cosineSimilarity from "cosine-similarity";
 
-// Ensure the in-memory store exists
-if (!global.resumeStore) {
-    global.resumeStore = new Map();
-}
-
 // Simple hash for duplicate detection
 const generateHash = (text) => {
     let hash = 0, i, chr;
@@ -28,7 +23,8 @@ export const POST = async (req) => {
     try {
         const body = await req.json();
         const jobDesc = body.jobDescription || "";
-        const resumeIds = body.resumeIds || [];
+        // Accept resumes directly from client (with rawText included)
+        const resumes = body.resumes || [];
 
         if (!jobDesc.trim()) {
             return NextResponse.json(
@@ -37,41 +33,26 @@ export const POST = async (req) => {
             );
         }
 
-        // 1. Fetch Data from in-memory store
         console.log("[Quick Rank] Analyzing Job:", jobDesc.substring(0, 50));
-        console.log("[Quick Rank] Resume IDs received:", resumeIds);
-        console.log("[Quick Rank] Store has", global.resumeStore.size, "resumes");
-
-        let resumes = [];
-        if (resumeIds.length > 0) {
-            resumes = resumeIds
-                .filter((id) => {
-                    if (!global.resumeStore.has(id)) {
-                        console.warn(`Resume ID not found in store: ${id}`);
-                        return false;
-                    }
-                    return true;
-                })
-                .map((id) => ({ id, ...global.resumeStore.get(id) }));
-        } else {
-            console.log("[Quick Rank] No IDs provided, fetching all resumes from store...");
-            resumes = Array.from(global.resumeStore.entries()).map(([id, data]) => ({
-                id,
-                ...data,
-            }));
-        }
-
-        console.log(`[Quick Rank] Fetched ${resumes.length} resumes from store.`);
+        console.log(`[Quick Rank] Received ${resumes.length} resumes from client.`);
 
         if (resumes.length === 0) {
             return NextResponse.json({ ranked: [], jobDescription: jobDesc });
+        }
+
+        // Validate that resumes have rawText
+        const validResumes = resumes.filter(r => r.rawText && r.rawText.trim().length > 0);
+        console.log(`[Quick Rank] ${validResumes.length} resumes have valid text.`);
+
+        if (validResumes.length === 0) {
+            return NextResponse.json({ error: "No resumes with valid text found" }, { status: 400 });
         }
 
         // 2. Duplicate Detection
         const seenHashes = new Set();
         const duplicates = new Set();
 
-        resumes.forEach(r => {
+        validResumes.forEach(r => {
             const h = generateHash(r.rawText.trim());
             if (seenHashes.has(h)) {
                 duplicates.add(r.id);
@@ -88,7 +69,7 @@ export const POST = async (req) => {
 
         console.log("[Quick Rank] Computing semantic scores...");
         const semanticScores = [];
-        for (const r of resumes) {
+        for (const r of validResumes) {
             const text = r.rawText || "";
             const resumeTensor = await model.embed([text]);
             const embedding = (await resumeTensor.array())[0];
@@ -101,7 +82,7 @@ export const POST = async (req) => {
         }
 
         // 4. Build Quick Results (No AI Analysis Yet)
-        const quickResults = resumes.map(r => {
+        const quickResults = validResumes.map(r => {
             const sem = semanticScores.find(s => s.id === r.id);
             return {
                 id: r.id,

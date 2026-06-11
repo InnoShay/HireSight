@@ -8,11 +8,6 @@ import * as use from "@tensorflow-models/universal-sentence-encoder";
 import cosineSimilarity from "cosine-similarity";
 import { getNextApiKey } from "../../../lib/apiKeyManager";
 
-// Ensure the in-memory store exists
-if (!global.resumeStore) {
-  global.resumeStore = new Map();
-}
-
 // Simple hash for duplicate detection
 const generateHash = (text) => {
   let hash = 0, i, chr;
@@ -29,7 +24,8 @@ export const POST = async (req) => {
   try {
     const body = await req.json();
     const jobDesc = body.jobDescription || "";
-    const resumeIds = body.resumeIds || [];
+    // Accept resumes directly from client (with rawText included)
+    const resumes = body.resumes || [];
 
     if (!jobDesc.trim()) {
       return NextResponse.json(
@@ -38,41 +34,22 @@ export const POST = async (req) => {
       );
     }
 
-    // 1. Fetch Data from in-memory store
     console.log("Analyzing Job:", jobDesc.substring(0, 50));
-    console.log("Resume IDs received:", resumeIds);
-    console.log("Store has", global.resumeStore.size, "resumes");
+    console.log(`Received ${resumes.length} resumes from client.`);
 
-    let resumes = [];
-    if (resumeIds.length > 0) {
-      resumes = resumeIds
-        .filter((id) => {
-          if (!global.resumeStore.has(id)) {
-            console.warn(`Resume ID not found in store: ${id}`);
-            return false;
-          }
-          return true;
-        })
-        .map((id) => ({ id, ...global.resumeStore.get(id) }));
-    } else {
-      console.log("No IDs provided, fetching all resumes from store...");
-      resumes = Array.from(global.resumeStore.entries()).map(([id, data]) => ({
-        id,
-        ...data,
-      }));
-    }
+    const validResumes = resumes.filter(r => r.rawText && r.rawText.trim().length > 0);
 
-    console.log(`Fetched ${resumes.length} resumes from store.`);
-
-    if (resumes.length === 0) {
+    if (validResumes.length === 0) {
       return NextResponse.json({ ranked: [] });
     }
+
+    console.log(`${validResumes.length} resumes have valid text.`);
 
     // 2. Duplicate Detection
     const seenHashes = new Set();
     const duplicates = new Set();
 
-    resumes.forEach(r => {
+    validResumes.forEach(r => {
       const h = generateHash(r.rawText.trim());
       if (seenHashes.has(h)) {
         duplicates.add(r.id);
@@ -87,7 +64,7 @@ export const POST = async (req) => {
     const jobEmbedding = (await jobEmbedTensor.array())[0];
 
     const semanticScores = [];
-    for (const r of resumes) {
+    for (const r of validResumes) {
       const text = r.rawText || "";
       const resumeTensor = await model.embed([text]);
       const embedding = (await resumeTensor.array())[0];
@@ -109,7 +86,7 @@ export const POST = async (req) => {
           "${jobDesc.substring(0, 3000)}"
 
           RESUMES:
-          ${resumes.map((r, i) => `Resume ${i + 1} (ID: ${r.id}): "${r.rawText.substring(0, 1500)}"`).join("\n\n")}
+          ${validResumes.map((r, i) => `Resume ${i + 1} (ID: ${r.id}): "${r.rawText.substring(0, 1500)}"`).join("\n\n")}
 
           TASK:
           Analyze these resumes against the JD. Return a JSON object with this EXACT structure (no markdown formatting, just raw JSON):
@@ -173,7 +150,7 @@ export const POST = async (req) => {
     }
 
     // 5. Merge Results
-    const finalResults = resumes.map(r => {
+    const finalResults = validResumes.map(r => {
       const sem = semanticScores.find(s => s.id === r.id);
       const ai = aiData.candidates?.find(c => c.id === r.id) || {};
 
